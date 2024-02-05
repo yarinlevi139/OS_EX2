@@ -18,7 +18,7 @@ void handle_client(int client_socket, char *root_dir) {
     char buffer[MAX_BUFFER_SIZE];
     ssize_t bytes_received;
 
-    usleep(1000);
+    usleep(70000);
 
     // Receive the request from the client
     bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
@@ -59,7 +59,7 @@ void handle_client(int client_socket, char *root_dir) {
             send_response(client_socket, "404 Not Found\r\n\r\n");
         } else {
             // Read and send the file content
-            send_response(client_socket, "200 OK\r\n\r\n");
+            send_response(client_socket, "200 OK\r\n");
 
             char file_buffer[MAX_BUFFER_SIZE];
             size_t bytes_read;
@@ -68,6 +68,7 @@ void handle_client(int client_socket, char *root_dir) {
                 send(client_socket, file_buffer, bytes_read, 0);
                 printf("sending %s",file_buffer);
             }
+            send_response(client_socket, "\r\n\r\n");
 
             fclose(file);
         }
@@ -167,9 +168,8 @@ int main(int argc, char *argv[]) {
         close(server_socket);
         exit(EXIT_FAILURE);
     }
-
+    printf("Listening...\n");
     while (1) {
-        printf("Listening...\n");
         fflush(stdout);
         int client_socket = accept(server_socket, NULL, NULL);
         if (client_socket < 0) {
@@ -183,6 +183,7 @@ int main(int argc, char *argv[]) {
             // Child process
             close(server_socket);  // Close the server socket in the child process
             handle_client(client_socket, root_dir);
+            exit(EXIT_SUCCESS);
         } else if (pid > 0) {
             // Parent process
             close(client_socket);

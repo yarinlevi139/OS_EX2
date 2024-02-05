@@ -74,7 +74,7 @@ void download_file(const char *file_path, int client_socket) {
     snprintf(request, sizeof(request), "GET /downloads/%s \r\n\r\n", file_path);
     send_request(client_socket, request, strlen(request));
 
-    usleep(1000); // wait to get the server full response
+    usleep(1000000); // wait to get the server full response
 
     // Receive and print the server's response
     char response[MAX_BUFFER_SIZE];
@@ -82,7 +82,7 @@ void download_file(const char *file_path, int client_socket) {
     if (bytes_received < 0) {
         perror("Error receiving response from server");
     } else {
-        response[bytes_received] = '\0';
+        printf("<<<%s>>>\n",response);
         char *token = strtok(response, "\r\n");
         token = strtok(NULL, "\r\n");
 
@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
         snprintf(request, sizeof(request), "GET /downloads/%s \r\n\r\n", item_to_download);
         send_request(client_socket, request, strlen(request));
 
-        usleep(1000); // wait to get the server full response
+        usleep(50000); // wait to get the server full response
 
         // Receive and print the server's response
         char response[MAX_BUFFER_SIZE];
@@ -191,8 +191,8 @@ int main(int argc, char *argv[]) {
         if (bytes_received < 0) {
             perror("Error receiving response from server");
         } else {
-
-            printf("<<<<<<%s>>>>>>",response);
+            response[bytes_received] = '\0';
+            printf("<<<<<<%s>>>>>>\n",response);
 
             close(client_socket); //closing the connection and starting to open multiple connections
 
@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
 
                 pid_t pid = fork();
 
-                if (pid == 0) //child process
+                if (pid == 0 && token!=NULL) //child process
                 {
                     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
                     if (client_socket < 0) {

@@ -4,7 +4,7 @@ simple_client : simple_client.o
 	gcc -o simple_client simple_client.o -lssl -lcrypto
 
 async_client : async_client.o
-	gcc -o async_client async_client.o -lssl -lcrypto
+	gcc -g -o async_client async_client.o -lssl -lcrypto
 
 async_client.o:async_client.c
 	gcc -c async_client.c
