@@ -18,6 +18,8 @@ void handle_client(int client_socket, char *root_dir) {
     char buffer[MAX_BUFFER_SIZE];
     ssize_t bytes_received;
 
+    usleep(1000);
+
     // Receive the request from the client
     bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
     if (bytes_received < 0) {

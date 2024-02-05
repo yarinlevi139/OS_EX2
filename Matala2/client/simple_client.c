@@ -93,15 +93,16 @@ char* base64_decode(const char *encoded) {
 
 
 int main(int argc,char *argv[]) {
-    if (argc != 3)
+    if (argc != 4)
     {
-        printf("<PATH> <METHOD>");
+        printf("<PATH> <METHOD> <ITEM_FROM_SERVER>");
         exit(EXIT_FAILURE);
     }
 
     const char *server_address = "127.0.0.1";
     const char *server_port = "8080";
     const char *file_path = argv[1];
+    const char *item_to_downlaod = argv[3];
 
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket < 0) {
@@ -137,7 +138,7 @@ int main(int argc,char *argv[]) {
         }
 
         char request[MAX_BUFFER_SIZE];
-        snprintf(request, sizeof(request), "POST /downloads/example.txt \r\n");
+        snprintf(request, sizeof(request), "POST %s \r\n",item_to_downlaod);
         send_request(client_socket, request, strlen(request));
 
         char buffer[MAX_BUFFER_SIZE];
@@ -166,7 +167,7 @@ int main(int argc,char *argv[]) {
     }
     else if (strcmp("G", method) == 0) { // GET
         char request[MAX_BUFFER_SIZE];
-        snprintf(request, sizeof(request), "GET /downloads/example.txt \r\n\r\n");
+        snprintf(request, sizeof(request), "GET %s \r\n\r\n",item_to_downlaod);
         send_request(client_socket, request, strlen(request));
 
         usleep(1000); // wait to get the server full response
