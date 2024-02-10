@@ -8,10 +8,10 @@ In order to run the simple_client:
     ./simple_client <PATH_TO_FILE> P <FILE_IN_SERVER> - upload <PATH_TO_FILE> into the <FILE_IN_SERVER>
 
     Examples:
-        ./simple_client /home/yarin/CLionProjects/Matala2/client/files/example2.txt P example2.txt
+        ./simple_client /home/yarin/CLionProjects/Matala2/client/files/example2.txt P /downloads/example2.txt
         will upload example2.txt to the server from /files/
 
-        ./simple_client /home/yarin/CLionProjects/Matala2/client/files/example2.txt G example2.txt
+        ./simple_client /home/yarin/CLionProjects/Matala2/client/files/example2.txt G /downloads/example2.txt
             will download example2.txt from the server to /files/
 
 
@@ -23,4 +23,4 @@ In order to run async_client:
     ./async_client example3.txt (for a single file)
 
 
-you might need to run exec one couple of times to see the results
+you might need to run each executable couple of times to see the results.

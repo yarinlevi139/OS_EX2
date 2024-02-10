@@ -79,6 +79,13 @@ void download_file(const char *file_path, int client_socket) {
     // Receive and print the server's response
     char response[MAX_BUFFER_SIZE];
     ssize_t bytes_received = recv(client_socket, response, sizeof(response), 0);
+
+    if(strcmp(response,"404 Not Found\r\n\r\n") == 0)
+    {
+        printf("%s",response);
+        exit(EXIT_FAILURE);
+    }
+
     if (bytes_received < 0) {
         perror("Error receiving response from server");
     } else {
@@ -183,7 +190,7 @@ int main(int argc, char *argv[]) {
         snprintf(request, sizeof(request), "GET /downloads/%s \r\n\r\n", item_to_download);
         send_request(client_socket, request, strlen(request));
 
-        usleep(50000); // wait to get the server full response
+        usleep(1000000); // wait to get the server full response
 
         // Receive and print the server's response
         char response[MAX_BUFFER_SIZE];

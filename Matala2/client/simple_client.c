@@ -153,6 +153,8 @@ int main(int argc,char *argv[]) {
         send_request(client_socket, "\r\n\r\n", sizeof("\r\n\r\n"));
         fclose(file);
 
+        usleep(1000000); // wait to get the server full response
+
         // Receive and print the server's response
         char response[MAX_BUFFER_SIZE];
         ssize_t bytes_received = recv(client_socket, response, sizeof(response), 0);
@@ -170,7 +172,7 @@ int main(int argc,char *argv[]) {
         snprintf(request, sizeof(request), "GET %s \r\n\r\n",item_to_downlaod);
         send_request(client_socket, request, strlen(request));
 
-        usleep(1000); // wait to get the server full response
+        usleep(1000000); // wait to get the server full response
 
         // Receive and print the server's response
         char response[MAX_BUFFER_SIZE];
