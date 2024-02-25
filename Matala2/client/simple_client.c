@@ -11,13 +11,17 @@
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
 
-#define MAX_BUFFER_SIZE 2048
+#define MAX_BUFFER_SIZE 10000
 
 void send_request(int server_socket, const char *request, size_t request_size) {
     send(server_socket, request, request_size, 0);
 }
 
-char *base64_encode(const char *input, size_t length) {
+#include <openssl/bio.h>
+#include <openssl/buffer.h>
+#include <openssl/evp.h>
+
+int base64_encode(const char *input, size_t length, char **output) {
     BIO *bio, *b64;
     BUF_MEM *bptr;
 
@@ -31,67 +35,45 @@ char *base64_encode(const char *input, size_t length) {
 
     BIO_get_mem_ptr(bio, &bptr);
 
-    char *output = (char *)malloc(bptr->length);
-    memcpy(output, bptr->data, bptr->length - 1);
-    output[bptr->length - 1] = '\0';
+    // Allocate enough memory for the encoded data plus padding
+    *output = (char *)malloc(bptr->length + 1); // Add 1 for the null terminator
+    if (*output == NULL) {
+        BIO_free_all(bio);
+        return -1; // Memory allocation failed
+    }
+
+    memcpy(*output, bptr->data, bptr->length);
+    (*output)[bptr->length] = '\0'; // Null-terminate the string
+
+    int bytes_encoded = bptr->length;
+    BIO_free_all(bio);
+
+    return bytes_encoded;
+}
+
+int base64_decode(const char *input, size_t length, char **output) {
+    BIO *bio, *b64;
+    // Create a BIO filter for base64 decoding
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new_mem_buf(input, length);
+    bio = BIO_push(b64, bio);
+
+    // Disable line breaks
+    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+
+    // Calculate the size of the decoded data
+    size_t max_decoded_size = (length * 3) / 4 + 1; // Maximum size of decoded data without padding
+    *output = (char *)malloc(max_decoded_size);
+
+    // Decode the base64 data
+    int bytes_decoded = BIO_read(bio, *output, length); // Use original input length
+
+    (*output)[bytes_decoded] = '\0'; // Null-terminate the output string
 
     BIO_free_all(bio);
 
-    return output;
+    return bytes_decoded;
 }
-
-// Function to decode base64 string and return the result
-char* base64_decode(const char *encoded) {
-    // Define the base64 characters
-    const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    // Create a reverse lookup table for base64 characters
-    int reverse_table[256];
-    for (int i = 0; i < 64; ++i) {
-        reverse_table[(int)base64_chars[i]] = i;
-    }
-
-    // Calculate the length of the decoded string
-    size_t encoded_len = strlen(encoded);
-    size_t decoded_len = (encoded_len / 4) * 3;
-
-    // Check for padding at the end
-    if (encoded[encoded_len - 1] == '=') {
-        decoded_len--;
-        if (encoded[encoded_len - 2] == '=') {
-            decoded_len--;
-        }
-    }
-
-    // Allocate memory for the decoded string
-    char *decoded = (char *)malloc(decoded_len + 1);
-
-    // Decode the base64 string
-    uint32_t buffer = 0;
-    int bits = 0;
-    size_t j = 0;
-    for (size_t i = 0; i < encoded_len; ++i) {
-        char c = encoded[i];
-        if (c == '=') {
-            break;
-        }
-        buffer = (buffer << 6) | reverse_table[(int)c];
-        bits += 6;
-        if (bits >= 8) {
-            bits -= 8;
-            decoded[j++] = (char)((buffer >> bits) & 0xFF);
-        }
-    }
-
-    // Null-terminate the decoded string
-    decoded[j] = '\0';
-
-    // Return the decoded string
-    return decoded;
-}
-
-
-
 int main(int argc,char *argv[]) {
     if (argc != 4)
     {
@@ -145,8 +127,9 @@ int main(int argc,char *argv[]) {
         size_t bytes_read;
 
         while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-            char *encoded_data = base64_encode(buffer, bytes_read);
-            send_request(client_socket, encoded_data, strlen(encoded_data));
+            char *encoded_data;
+            int encoded_length = base64_encode(buffer, bytes_read, &encoded_data);
+            send_request(client_socket, encoded_data, encoded_length);
             free(encoded_data);
         }
 
@@ -185,15 +168,26 @@ int main(int argc,char *argv[]) {
             token = strtok(NULL, "\r\n");
 
             printf("Token: %s\n", token);
-            size_t len = strlen(token);
-            char *decoded = base64_decode(token);
 
-            FILE *file = fopen(file_path, "wb");
-            fwrite(decoded, 1, strlen(decoded), file);
-            fclose(file);
+            if (token != NULL) {
+                size_t len = strlen(token);
+                char *decoded;
+                int bytes_decoded = base64_decode(token, len, &decoded);
 
-            printf("Decoded data: %.*s\n", (int)len, decoded);
-            free(decoded);  // Free the allocated memory for decoded data
+                if (bytes_decoded > 0) {
+                    FILE *file = fopen(file_path, "wb");
+                    fwrite(decoded, 1, bytes_decoded, file);
+                    fclose(file);
+
+                    printf("Decoded data: %.*s\n", (int)bytes_decoded, decoded);
+
+                    free(decoded);  // Free the allocated memory for decoded data
+                } else {
+                    fprintf(stderr, "Base64 decoding failed.\n");
+                }
+            } else {
+                fprintf(stderr, "Token not found in response.\n");
+            }
         }
     }
 

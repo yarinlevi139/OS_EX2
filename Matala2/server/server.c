@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 
-#define MAX_BUFFER_SIZE 2048
+#define MAX_BUFFER_SIZE 10000
 #define MAX_PATH_SIZE 256
 
 void send_response(int client_socket, char *response) {

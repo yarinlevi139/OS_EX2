@@ -13,75 +13,41 @@
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
 
-#define MAX_BUFFER_SIZE 2048
+#define MAX_BUFFER_SIZE 10000
 
 void send_request(int server_socket, const char *request, size_t request_size) {
     send(server_socket, request, request_size, 0);
 }
 
-//Function to decode base64 string and return the result
-char* base64_decode(const char *encoded) {
-    // Define the base64 characters
-    const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+int base64_decode(const char *input, size_t length, char **output) {
+    BIO *bio, *b64;
+    // Create a BIO filter for base64 decoding
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new_mem_buf(input, length);
+    bio = BIO_push(b64, bio);
 
-    // Create a reverse lookup table for base64 characters
-    int reverse_table[256];
-    for (int i = 0; i < 64; ++i) {
-        reverse_table[(int)base64_chars[i]] = i;
-    }
+    // Disable line breaks
+    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
 
-    // Calculate the length of the decoded string
-    size_t encoded_len = strlen(encoded);
-    size_t decoded_len = (encoded_len / 4) * 3;
+    // Calculate the size of the decoded data
+    size_t max_decoded_size = (length * 3) / 4 + 1; // Maximum size of decoded data without padding
+    *output = (char *)malloc(max_decoded_size);
 
-    // Check for padding at the end
-    if (encoded[encoded_len - 1] == '=') {
-        decoded_len--;
-        if (encoded[encoded_len - 2] == '=') {
-            decoded_len--;
-        }
-    }
+    // Decode the base64 data
+    int bytes_decoded = BIO_read(bio, *output, length); // Use original input length
 
-    // Allocate memory for the decoded string
-    char *decoded = (char *)malloc(decoded_len + 1);
+    (*output)[bytes_decoded] = '\0'; // Null-terminate the output string
 
-    // Decode the base64 string
-    uint32_t buffer = 0;
-    int bits = 0;
-    size_t j = 0;
-    for (size_t i = 0; i < encoded_len; ++i) {
-        char c = encoded[i];
-        if (c == '=') {
-            break;
-        }
-        buffer = (buffer << 6) | reverse_table[(int)c];
-        bits += 6;
-        if (bits >= 8) {
-            bits -= 8;
-            decoded[j++] = (char)((buffer >> bits) & 0xFF);
-        }
-    }
+    BIO_free_all(bio);
 
-    // Null-terminate the decoded string
-    decoded[j] = '\0';
-
-    // Return the decoded string
-    return decoded;
+    return bytes_decoded;
 }
 
-
 void download_file(char* file_path,int client_socket) {
-
 
     // Receive and print the server's response
     char response[MAX_BUFFER_SIZE];
     ssize_t bytes_received = recv(client_socket, response, sizeof(response), 0);
-
-    if(strcmp(response,"404 Not Found\r\n\r\n") == 0)
-    {
-        printf("%s",response);
-        exit(EXIT_FAILURE);
-    }
 
     if (bytes_received < 0) {
         perror("Error receiving response from server");
@@ -91,14 +57,15 @@ void download_file(char* file_path,int client_socket) {
         token = strtok(NULL, "\r\n");
 
         size_t len = strlen(token);
-        char *decoded = base64_decode(token);
+        char *decoded;
+        int bytes_decoded = base64_decode(token, len, &decoded);
 
         char *subpath = malloc(strlen("files/") + strlen(file_path) + 1);
         strcpy(subpath, "files/");
         strcat(subpath, file_path);
 
         FILE *file = fopen(subpath, "wb");
-        fwrite(decoded, 1, strlen(decoded), file);
+        fwrite(decoded, 1, bytes_decoded, file);
         fclose(file);
 
         free(decoded);  // Free the allocated memory for decoded data
@@ -187,7 +154,7 @@ int main(int argc, char *argv[]) {
         snprintf(request, sizeof(request), "GET /downloads/%s \r\n\r\n", item_to_download);
         send_request(client_socket, request, strlen(request));
 
-        usleep(1000000); // wait to get the server full response
+        usleep(1100000); // wait to get the server full response
 
         // Receive and print the server's response
         char response[MAX_BUFFER_SIZE];
