@@ -17,9 +17,6 @@ void send_request(int server_socket, const char *request, size_t request_size) {
     send(server_socket, request, request_size, 0);
 }
 
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <openssl/evp.h>
 
 int base64_encode(const char *input, size_t length, char **output) {
     BIO *bio, *b64;

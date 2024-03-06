@@ -18,7 +18,7 @@ void handle_client(int client_socket, char *root_dir) {
     char buffer[MAX_BUFFER_SIZE];
     ssize_t bytes_received;
 
-    usleep(70000);
+    usleep(10000);
 
     // Receive the request from the client
     bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
@@ -52,23 +52,28 @@ void handle_client(int client_socket, char *root_dir) {
 
 
     if (strcmp(method, "GET") == 0) {
-        // Handle GET request
         FILE *file = fopen(full_path, "rb");
         if (file == NULL) {
             // File not found
             send_response(client_socket, "404 Not Found\r\n\r\n");
         } else {
-            // Read and send the file content
-            send_response(client_socket, "200 OK\r\n");
+            // Buffering the 200 OK response
+            char response_buffer[MAX_BUFFER_SIZE];
+            sprintf(response_buffer, "200 OK\r\n");
 
+            // Buffering the file content
             char file_buffer[MAX_BUFFER_SIZE];
             size_t bytes_read;
+            size_t total_bytes_sent = 0;
 
             while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), file)) > 0) {
-                send(client_socket, file_buffer, bytes_read, 0);
-                printf("sending %s",file_buffer);
+                memcpy(response_buffer + strlen(response_buffer), file_buffer, bytes_read);
+                total_bytes_sent += bytes_read;
             }
-            send_response(client_socket, "\r\n\r\n");
+
+            // Sending the buffered response and file content together
+            send(client_socket, response_buffer, strlen(response_buffer), 0);
+            printf("sending %s", response_buffer);
 
             fclose(file);
         }

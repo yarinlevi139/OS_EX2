@@ -47,15 +47,24 @@ void download_file(char* file_path,int client_socket) {
 
     // Receive and print the server's response
     char response[MAX_BUFFER_SIZE];
+    bzero(response,MAX_BUFFER_SIZE);
     ssize_t bytes_received = recv(client_socket, response, sizeof(response), 0);
-
+    if (bytes_received == 0)
+        return;
+    response[bytes_received] = '\0';
+    printf("\n bytes recieved %ld\n",bytes_received);
     if (bytes_received < 0) {
         perror("Error receiving response from server");
     } else {
         printf("<<<%s>>>\n",response);
         char *token = strtok(response, "\r\n");
-        token = strtok(NULL, "\r\n");
+        if(strcmp(token,"404 Not Found") == 0)
+        {
+            printf("Server File Error");
+            exit(EXIT_FAILURE);
+        }
 
+        token = strtok(NULL, "\r\n");
         size_t len = strlen(token);
         char *decoded;
         int bytes_decoded = base64_decode(token, len, &decoded);
@@ -110,6 +119,11 @@ int main(int argc, char *argv[]) {
             close(client_socket);
             exit(EXIT_FAILURE);
         }
+
+        char request[MAX_BUFFER_SIZE];
+        snprintf(request, sizeof(request), "GET /downloads/%s \r\n\r\n", item_to_download);
+        send_request(client_socket, request, strlen(request));
+
         download_file(item_to_download,client_socket);
     }
     else { //we contain .list file
@@ -202,14 +216,11 @@ int main(int argc, char *argv[]) {
                 exit(1);
             }
 
-            int max_fd = -1;
             struct sockaddr_in server_addr;
 
             // Create sockets and connect to the server
             for (int i = 0; i < counter; ++i) {
                 sockets[i] = socket(AF_INET, SOCK_STREAM, 0);
-                if (sockets[i] > max_fd)
-                    max_fd = sockets[i];
                 if (sockets[i] < 0) {
                     perror("socket");
                     exit(EXIT_FAILURE);
@@ -233,31 +244,46 @@ int main(int argc, char *argv[]) {
             }
 
             fd_set readfds;
-            FD_ZERO(&readfds);
+            while(1) {
 
-            // Add sockets to the set
-            for (int i = 0; i < counter; ++i) {
-                FD_SET(sockets[i], &readfds);
-            }
+                FD_ZERO(&readfds);
+                int max_fd = -1;
 
-            usleep(1000000); // wait to get the server full response
+                // Add sockets to the set
+                for (int i = 0; i < counter; ++i) {
+                    if(sockets[i]!=0)
+                        FD_SET(sockets[i], &readfds);
+                    if (sockets[i] > max_fd)
+                        max_fd = sockets[i];
+                }
 
-            // Use select to wait for activity on sockets
-            int activity = select(max_fd + 1, &readfds, NULL, NULL, NULL);
-            if (activity < 0) {
-                perror("select");
-                exit(EXIT_FAILURE);
-            }
+                struct timeval timeout;
+                timeout.tv_sec = 3; // 3 seconds timeout
+                timeout.tv_usec = 0;
+
+                // Use select to wait for activity on sockets
+                int activity = select(max_fd + 1, &readfds, NULL, NULL, &timeout);
+                if(activity == 0)
+                {
+                    printf("Breaking");
+                    break;
+                }
+                if (activity < 0) {
+                    perror("select");
+                    exit(EXIT_FAILURE);
+                }
 
 
-            for (int i = 0; i < counter; ++i) {
-                if (FD_ISSET(sockets[i], &readfds)) {
-                    if (filenames[i] != NULL) {
-                        download_file(filenames[i], sockets[i]);
+                for (int i = 0; i < counter; ++i) {
+                    if (FD_ISSET(sockets[i], &readfds)) {
+                        if (filenames[i] != NULL) {
+                            download_file(filenames[i], sockets[i]);
+                        }
+                        close(sockets[i]);
+                        sockets[i] = 0;
                     }
                 }
             }
-
 
             free(sockets);
             free(file_path);

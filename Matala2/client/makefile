@@ -6,8 +6,8 @@ simple_client : simple_client.o
 async_client : async_client.o
 	gcc -g -o async_client async_client.o -lssl -lcrypto
 
-async_client.o:async_client.c
-	gcc -c async_client.c
+async_client.o: async_client.c
+	gcc -c -g async_client.c
 
 
 simple_client.o: simple_client.c
